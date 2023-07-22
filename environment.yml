@@ -1,0 +1,21 @@
+name: PSF
+channels:
+        - pytorch
+        - nvidia
+        - anaconda
+        - iopath
+        - defaults
+dependencies:
+        - python=3.9
+        - pip=22.3.1
+        - pytorch=1.13.0
+        - pytorch-cuda=11.6
+        - torchvision=0.14.0
+        - iopath=0.1.9
+        - pip:
+            - fvcore==0.1.5.post20221221
+            - open3d==0.17.0
+            - gdown==4.7.1
+            - trimesh==3.22.5
+            - scipy==1.11.1
+            - ninja==1.11.1
