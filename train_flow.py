@@ -352,7 +352,6 @@ def train(gpu, opt, output_dir, noises_init):
         if opt.distribution_type == 'multi':
             train_sampler.set_epoch(epoch)
 
-        lr_scheduler.step(epoch)
 
         for i, data in enumerate(dataloader):
             
@@ -380,13 +379,15 @@ def train(gpu, opt, output_dir, noises_init):
 
 
             if i % opt.print_freq == 0 and should_diag:
-
-                logger.info('[{:>3d}/{:>3d}][{:>3d}/{:>3d}]    loss: {:>10.4f},    '
+                logger.info('[{:>3d}/{:>3d}][{:>3d}/{:>3d}]    loss: {:>10.4f},'
                              .format(
-                        epoch, opt.niter, i, len(dataloader),loss.item()
+                        epoch, opt.niter, i, len(dataloader), loss.item(), 
                         ))
+                scheduler_state = ', '.join(['{} {}'.format(item, amount) for item, value in scheduler.state_dict().items()])
+                logger.info(scheduler_state)
 
 
+        lr_scheduler.step()
         
         if (epoch + 1) % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
