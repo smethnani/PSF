@@ -579,7 +579,9 @@ def main(opt):
         opt.schedule_type = 'warm0.1'
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
-    dir_id = os.path.dirname(__file__)
+    dir_id = opt.outdir
+    if len(dir_id) == 0:
+        dir_id = os.path.dirname(__file__)
     output_dir = get_output_dir(dir_id, exp_id)
     copy_source(__file__, output_dir)
     logger = setup_logging(output_dir)
@@ -648,7 +650,7 @@ def parse_args():
     parser.add_argument('--loss_type', default='mse')
     parser.add_argument('--model_mean_type', default='eps')
     parser.add_argument('--model_var_type', default='fixedsmall')
-
+    parser.add_argument('--outdir', default='', help='output directory')
 
     parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
 

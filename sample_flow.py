@@ -596,7 +596,7 @@ def train(gpu, opt, output_dir, noises_init):
                 x0 = torch.cat(x0, 0)
                 x1 = torch.cat(x1, 0)
                 # This should be parallely sampled with 8 GPUs in practice , here we only use one as example
-                torch.save([x0, x1], 'DATASET.pth')
+                torch.save([x0, x1],  '%s/DATASET.pth' % output_dir)
 
                 exit(0)
 
@@ -610,7 +610,9 @@ def main():
         opt.schedule_type = 'warm0.1'
 
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
-    dir_id = os.path.dirname(__file__)
+    dir_id = opt.outdir
+    if len(dir_id) == 0:
+        dir_id = os.path.dirname(__file__)
     output_dir = get_output_dir(dir_id, exp_id)
     copy_source(__file__, output_dir)
 
