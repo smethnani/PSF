@@ -586,7 +586,7 @@ def train(gpu, opt, output_dir, noises_init):
 
                 x0 = []
                 x1 = []
-                for i in range(200):
+                for i in range(1000):
                     x_gen_eval = model.gen_samples(new_x_chain(x, 64).shape, x.device, clip_denoised=False)
                     x0.append(x_gen_eval[0])
                     x1.append(x_gen_eval[1])
