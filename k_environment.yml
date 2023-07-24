@@ -1,23 +1,19 @@
-name: PSF
+name: K_PSF
 channels:
         - pytorch
         - nvidia
         - anaconda
-        - conda-forge
-        - fvcore
         - iopath
-        - pytorch3d
         - defaults
 dependencies:
         - python=3.10
-        - pip
-        - pytorch=1.13.1
-        - pytorch-cuda=11.6
-        - torchvision=0.14.1
+        - pip=22.3.1
+        - pytorch=1.10.0
+        - cudatoolkit=11.3
+        - torchvision
         - iopath
-        - fvcore
-        - pytorch3d
         - pip:
+            - fvcore
             - open3d
             - gdown
             - trimesh
