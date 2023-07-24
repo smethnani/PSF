@@ -350,11 +350,9 @@ def train(gpu, opt, output_dir, noises_init):
         if opt.distribution_type == 'multi':
             train_sampler.set_epoch(epoch)
 
-        lr_scheduler.step(epoch)
-
         for i, data in enumerate(dataloader):
-            x0 = data['train_points0']
-            x1 = data['train_points1']
+            x0 = data['train_points1']
+            x1 = data['train_points0']
             noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
@@ -387,8 +385,7 @@ def train(gpu, opt, output_dir, noises_init):
                         epoch, opt.niter, i, len(dataloader),loss.item(),
                         ))
 
-
-
+        lr_scheduler.step()
         if (epoch + 1) % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
 
@@ -433,8 +430,6 @@ def train(gpu, opt, output_dir, noises_init):
         if (epoch + 1) % opt.saveIter == 0:
 
             if should_diag:
-
-
                 save_dict = {
                     'epoch': epoch,
                     'model_state': model.state_dict(),
