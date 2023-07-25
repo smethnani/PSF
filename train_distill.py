@@ -34,7 +34,7 @@ class Flowmodel:
         """
         model_mean = self.p_mean(denoise_fn, data=data, t=t)
 
-        return sample
+        return model_mean
 
 
     def p_sample_loop(self, denoise_fn, shape, device,
@@ -348,8 +348,6 @@ def train(gpu, opt, output_dir, noises_init):
         if opt.distribution_type == 'multi':
             train_sampler.set_epoch(epoch)
 
-        lr_scheduler.step(epoch)
-
         for i, data in enumerate(dataloader):
             x0 = data['train_points0']
             x1 = data['train_points1']
@@ -388,7 +386,7 @@ def train(gpu, opt, output_dir, noises_init):
                         ))
 
 
-
+        lr_scheduler.step()
         if (epoch + 1) % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
 
