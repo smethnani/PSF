@@ -351,8 +351,8 @@ def train(gpu, opt, output_dir, noises_init):
             train_sampler.set_epoch(epoch)
 
         for i, data in enumerate(dataloader):
-            x0 = data['train_points1']
-            x1 = data['train_points0']
+            x0 = data['train_points0']
+            x1 = data['train_points1']
             noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
