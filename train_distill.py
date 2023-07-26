@@ -34,7 +34,7 @@ class Flowmodel:
         """
         model_mean = self.p_mean(denoise_fn, data=data, t=t)
 
-        return sample
+        return model_mean
 
 
     def p_sample_loop(self, denoise_fn, shape, device,
@@ -65,20 +65,16 @@ class Flowmodel:
             is used across the batch. If >= 0, the initial noise is the same for all batch elemements.
         """
         assert isinstance(shape, (tuple, list))
-
-        total_steps =  self.num_timesteps if not keep_running else len(self.betas)
-
+        total_steps =  1
         img_t = noise_fn(size=shape, dtype=torch.float, device=device)
         imgs = [img_t]
         for t in range(1):
-
             t_ = torch.empty(shape[0], dtype=torch.int64, device=device).fill_(t)
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t, t=t_, noise_fn=noise_fn,
                                   clip_denoised=clip_denoised,
                                   return_pred_xstart=False)
             if t % freq == 0 or t == total_steps-1:
                 imgs.append(img_t)
-
         return imgs
 
     @torch.no_grad()
@@ -102,7 +98,7 @@ class Flowmodel:
         t = t.squeeze()
         data_t = inter_data
         eps_recon = denoise_fn(data_t, t)
-        losses = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
+        losses, _ = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
 
         return losses
 

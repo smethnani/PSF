@@ -22,7 +22,6 @@ models
 '''
 
 from scipy import integrate
-import sde_lib
 def to_flattened_numpy(x):
   """Flatten a torch tensor `x` and convert it to numpy."""
   return x.detach().cpu().numpy().reshape((-1,))
