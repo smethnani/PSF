@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-
+import wandb
 import argparse
 from torch.distributions import Normal
 
@@ -263,7 +263,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
     return train_dataloader, test_dataloader, train_sampler, test_sampler
 
 
-def train(gpu, opt, output_dir, noises_init):
+def train(gpu, opt, output_dir, noises_init, wandb_run=None):
 
     set_seed(opt)
     logger = setup_logging(output_dir)
@@ -359,7 +359,6 @@ def train(gpu, opt, output_dir, noises_init):
             
             noises_batch = noises_init[data['idx']].transpose(1,2)
 
-
             if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
                 x = x.cuda(gpu)
                 noises_batch = noises_batch.cuda(gpu)
@@ -385,11 +384,16 @@ def train(gpu, opt, output_dir, noises_init):
                         ))
                 scheduler_state = ', '.join(['{} {}'.format(item, amount) for item, value in scheduler.state_dict().items()])
                 logger.info(scheduler_state)
+                wandb.log({
+                    'epoch': '{:>3d}/{:>3d}'.format(epoch, opt.niter),
+                    'batch': '{:>3d}/{:>3d}'.format(i, len(dataloader))
+                    'loss': '{:>10.4f}'.format(loss.item())
+                })
 
 
         lr_scheduler.step()
         
-        if (epoch + 1) % opt.vizIter == 0 and should_diag:
+        if epoch % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
 
             model.eval()
@@ -410,17 +414,28 @@ def train(gpu, opt, output_dir, noises_init):
                     epoch, opt.niter,
                     *gen_eval_range, *gen_stats,
                 ))
+                num_vis = 10
+                x_gen_T = x_gen_eval.transpose(1, 2)
+                x_T = x.transpose(1, 2)
+                x_gen_all_T = x_gen_all.transpose(1, 2)
+                generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                ground_truth = [x_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                wandb.log({
+                    "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
+                    "gtr": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in ground_truth],
+                    "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in x_gen_all_T]
+                    })
 
             visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
-                                       x_gen_eval.transpose(1, 2), None, None,
+                                       x_gen_T, None, None,
                                        None)
 
             visualize_pointcloud_batch('%s/epoch_%03d_samples_eval_all.png' % (outf_syn, epoch),
-                                       x_gen_all.transpose(1, 2), None,
+                                       x_gen_all_T, None,
                                        None,
                                        None)
 
-            visualize_pointcloud_batch('%s/epoch_%03d_x.png' % (outf_syn, epoch), x.transpose(1, 2), None,
+            visualize_pointcloud_batch('%s/epoch_%03d_x.png' % (outf_syn, epoch), x_T, None,
                                        None,
                                        None)
 
@@ -428,21 +443,19 @@ def train(gpu, opt, output_dir, noises_init):
             model.train()
 
 
-
-
         if (epoch + 1) % opt.saveIter == 0:
-
             if should_diag:
-
-
                 save_dict = {
                     'epoch': epoch,
                     'model_state': model.state_dict(),
                     'optimizer_state': optimizer.state_dict()
                 }
-
-                torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
-
+                save_path = '%s/epoch_%d.pth' % (output_dir, epoch)
+                torch.save(save_dict, save_path)
+                if wandb_run is not None:
+                    artifact = wandb.Artifact('flow-epoch_%d.pth' % epoch, type='model')
+                    artifact.add_file(save_path)
+                    wandb_run.log_artifact(artifact)
 
             if opt.distribution_type == 'multi':
                 dist.barrier()
@@ -454,6 +467,7 @@ def train(gpu, opt, output_dir, noises_init):
 
 def main():
     opt = parse_args()
+    run = wandb.init(config=opt, project='shapes-exp')
     if 1:
         opt.beta_start = 1e-5
         opt.beta_end = 0.008
@@ -476,9 +490,10 @@ def main():
     if opt.distribution_type == 'multi':
         opt.ngpus_per_node = torch.cuda.device_count()
         opt.world_size = opt.ngpus_per_node * opt.world_size
-        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
+        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init, run))
     else:
-        train(opt.gpu, opt, output_dir, noises_init)
+        train(opt.gpu, opt, output_dir, noises_init, wandb_run=run)
+    run.finish()
 
 
 
@@ -488,7 +503,7 @@ def parse_args():
     parser.add_argument('--dataroot', default='./ShapeNetCore.v2.PC15k/')
     parser.add_argument('--category', default='car')
 
-    parser.add_argument('--bs', type=int, default=96, help='input batch size')
+    parser.add_argument('--bs', type=int, default=32, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=20000, help='number of epochs to train for')
 
@@ -535,9 +550,9 @@ def parse_args():
                         help='GPU id to use. None means using all available GPUs.')
 
     '''eval'''
-    parser.add_argument('--saveIter', default=100, help='unit: epoch')
+    parser.add_argument('--saveIter', default=400, help='unit: epoch')
     parser.add_argument('--diagIter', default=100, help='unit: epoch')
-    parser.add_argument('--vizIter', default=100, help='unit: epoch')
+    parser.add_argument('--vizIter', default=200, help='unit: epoch')
     parser.add_argument('--print_freq', default=50, help='unit: iter')
     parser.add_argument('--outdir', default='', help='output directory')
 
