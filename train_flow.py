@@ -264,7 +264,8 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 
 def train(gpu, opt, output_dir, noises_init, wandb_run=None):
-
+    if wandb_run is None:
+        wandb_run = wandb.init(group='train-flow', config=opt, project='shapes-exp')
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -381,7 +382,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                         ))
                 scheduler_state = ', '.join(['{} {}'.format(item, value) for item, value in lr_scheduler.state_dict().items()])
                 logger.info(scheduler_state)
-                wandb.log({
+                wandb_run.log({
                     'epoch': '{:>3d}/{:>3d}'.format(epoch, opt.niter),
                     'batch': '{:>3d}/{:>3d}'.format(i,len(dataloader)),
                     'loss': '{:>10.4f}'.format(loss.item())
@@ -417,7 +418,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 x_gen_all_T = x_gen_all.transpose(1, 2)
                 generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
                 ground_truth = [x_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
-                wandb.log({
+                wandb_run.log({
                     "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
                     "gtr": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in ground_truth],
                     "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in x_gen_all_T]
@@ -460,11 +461,11 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 model.load_state_dict(
                     torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
 
+    wandb_run.finish()
     dist.destroy_process_group()
 
 def main():
     opt = parse_args()
-    run = wandb.init(config=opt, project='shapes-exp')
     if 1:
         opt.beta_start = 1e-5
         opt.beta_end = 0.008
@@ -487,10 +488,10 @@ def main():
     if opt.distribution_type == 'multi':
         opt.ngpus_per_node = torch.cuda.device_count()
         opt.world_size = opt.ngpus_per_node * opt.world_size
-        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init, run))
+        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
     else:
+        run = wandb.init(config=opt, project='shapes-exp')
         train(opt.gpu, opt, output_dir, noises_init, wandb_run=run)
-    run.finish()
 
 
 
