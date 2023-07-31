@@ -383,9 +383,9 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 scheduler_state = ', '.join(['{} {}'.format(item, value) for item, value in lr_scheduler.state_dict().items()])
                 logger.info(scheduler_state)
                 wandb_run.log({
-                    'epoch': '{:>3d}/{:>3d}'.format(epoch, opt.niter),
-                    'batch': '{:>3d}/{:>3d}'.format(i,len(dataloader)),
-                    'loss': '{:>10.4f}'.format(loss.item())
+                    'epoch': epoch,
+                    'batch': i,
+                    'loss': loss.item()
                 })
 
 
@@ -418,10 +418,11 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 x_gen_all_T = x_gen_all.transpose(1, 2)
                 generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
                 ground_truth = [x_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                gen_all_list = [x_gen_all_T[idx].cpu().detach().numpy() for idx in range(x_gen_all_T.shape[0])]
                 wandb_run.log({
                     "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
                     "gtr": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in ground_truth],
-                    "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in x_gen_all_T]
+                    "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in gen_all_list]
                     })
 
             visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
