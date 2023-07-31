@@ -335,16 +335,13 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
     if opt.model != '':
         ckpt = torch.load(opt.model)
         model.load_state_dict(ckpt['model_state'])
-        #optimizer.load_state_dict(ckpt['optimizer_state'])
-
-    if opt.model != '':
-        start_epoch = 0#torch.load(opt.model)['epoch'] + 1
+        optimizer.load_state_dict(ckpt['optimizer_state'])
+        start_epoch = ckpt['epoch'] + 1
     else:
         start_epoch = 0
 
     def new_x_chain(x, num_chain):
         return torch.randn(num_chain, *x.shape[1:], device=x.device)
-
 
 
     for epoch in range(start_epoch, opt.niter):
@@ -382,7 +379,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                              .format(
                         epoch, opt.niter, i, len(dataloader), loss.item(), 
                         ))
-                scheduler_state = ', '.join(['{} {}'.format(item, amount) for item, value in scheduler.state_dict().items()])
+                scheduler_state = ', '.join(['{} {}'.format(item, amount) for item, value in lr_scheduler.state_dict().items()])
                 logger.info(scheduler_state)
                 wandb.log({
                     'epoch': '{:>3d}/{:>3d}'.format(epoch, opt.niter),
