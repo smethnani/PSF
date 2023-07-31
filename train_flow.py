@@ -383,7 +383,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 logger.info(scheduler_state)
                 wandb.log({
                     'epoch': '{:>3d}/{:>3d}'.format(epoch, opt.niter),
-                    'batch': '{:>3d}/{:>3d}'.format(i, len(dataloader))
+                    'batch': '{:>3d}/{:>3d}'.format(i,len(dataloader)),
                     'loss': '{:>10.4f}'.format(loss.item())
                 })
 
