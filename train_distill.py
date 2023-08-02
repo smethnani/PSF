@@ -106,7 +106,7 @@ class Flowmodel:
         if loss_type == "chamfer":
             losses, _  = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
-        else
+        else:
             losses = SlicedWassersteinDist(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
 
