@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-
+import wandb
 import argparse
 from torch.distributions import Normal
 
@@ -92,7 +92,7 @@ class Flowmodel:
         target = data - z0
         return inter_data, t * 999, target
 
-    def p_losses(self, denoise_fn, data_start, t, noise=None):
+    def p_losses(self, denoise_fn, data_start, t):
         """
         Training loss calculation
         """
@@ -103,7 +103,6 @@ class Flowmodel:
         data_t = inter_data
         eps_recon = denoise_fn(data_t, t)
         losses = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
-
         return losses
 
 class PVCNN2(PVCNN2Base):
@@ -150,11 +149,11 @@ class Model(nn.Module):
         B, D, N = data.shape
         t = torch.randint(0, 1000, size=(B,), device=data.device)
 
-        if noises is not None:
-            noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
+        # if noises is not None:
+        #     noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
         data = [x0, x1]
         losses = self.flow.p_losses(
-            denoise_fn=self._denoise, data_start=data, t=t, noise=noises)
+            denoise_fn=self._denoise, data_start=data, t=t)
         return losses
 
     def gen_samples(self, shape, device, noise_fn=torch.randn,
@@ -259,8 +258,9 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
     return train_dataloader, test_dataloader, train_sampler, test_sampler
 
 
-def train(gpu, opt, output_dir, noises_init):
-
+def train(gpu, opt, output_dir, noises_init, wandb_run=None):
+    if wandb_run is None:
+        wandb_run = wandb.init(group='train-distill', config=opt, project='shapes-exp')
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -351,7 +351,7 @@ def train(gpu, opt, output_dir, noises_init):
         for i, data in enumerate(dataloader):
             x0 = data['train_points0']
             x1 = data['train_points1']
-            noises_batch = noises_init[data['idx']].transpose(1,2)
+            # noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
             train diffusion
@@ -360,12 +360,12 @@ def train(gpu, opt, output_dir, noises_init):
             if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
                 x0 = x0.cuda(gpu)
                 x1 = x1.cuda(gpu)
-                noises_batch = noises_batch.cuda(gpu)
+                # noises_batch = noises_batch.cuda(gpu)
             elif opt.distribution_type == 'single':
                 x = x.cuda()
-                noises_batch = noises_batch.cuda()
+                # noises_batch = noises_batch.cuda()
             x = [x0, x1]
-            loss = model.get_loss_iter(x, noises_batch).mean()
+            loss = model.get_loss_iter(x).mean()
 
             optimizer.zero_grad()
             loss.backward()
@@ -387,15 +387,15 @@ def train(gpu, opt, output_dir, noises_init):
 
 
         lr_scheduler.step()
-        if (epoch + 1) % opt.vizIter == 0 and should_diag:
+        if epoch % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
 
             model.eval()
             x = x1
             with torch.no_grad():
-
-                x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, clip_denoised=False)
-                x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, freq=40, clip_denoised=False)
+                bs = 10 if x0.shape[0] > 10 else x0.shape[0]
+                x_gen_eval = model.gen_samples(new_x_chain(x0, bs).shape, x.device, noise=x0[:bs], clip_denoised=False)
+                x_gen_list = model.gen_sample_traj(new_x_chain(x0, 1).shape, x.device, noise=x0[:1], freq=40, clip_denoised=False)
                 x_gen_all = torch.cat(x_gen_list, dim=0)
 
                 gen_stats = [x_gen_eval.mean(), x_gen_eval.std()]
@@ -408,6 +408,18 @@ def train(gpu, opt, output_dir, noises_init):
                     epoch, opt.niter,
                     *gen_eval_range, *gen_stats,
                 ))
+                num_vis = 10
+                x_gen_T = x_gen_eval.transpose(1, 2)
+                x_T = x.transpose(1, 2)
+                x_gen_all_T = x_gen_all.transpose(1, 2)
+                generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                ground_truth = [x_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                gen_all_list = [x_gen_all_T[idx].cpu().detach().numpy() for idx in range(x_gen_all_T.shape[0])]
+                wandb_run.log({
+                    "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
+                    "gtr": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in ground_truth],
+                    "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in gen_all_list]
+                    })
 
             visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
                                        x_gen_eval.transpose(1, 2), None, None,
@@ -476,7 +488,8 @@ def main():
         opt.world_size = opt.ngpus_per_node * opt.world_size
         mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
     else:
-        train(opt.gpu, opt, output_dir, noises_init)
+        run = wandb.init(config=opt, project='shapes-exp')
+        train(opt.gpu, opt, output_dir, noises_init, wandb_run=run)
 
 
 
@@ -486,7 +499,7 @@ def parse_args():
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
     parser.add_argument('--category', default='chair')
 
-    parser.add_argument('--bs', type=int, default=96, help='input batch size')
+    parser.add_argument('--bs', type=int, default=32, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
 
@@ -533,9 +546,9 @@ def parse_args():
                         help='GPU id to use. None means using all available GPUs.')
 
     '''eval'''
-    parser.add_argument('--saveIter', default=100, help='unit: epoch')
+    parser.add_argument('--saveIter', default=20, help='unit: epoch')
     parser.add_argument('--diagIter', default=100, help='unit: epoch')
-    parser.add_argument('--vizIter', default=100, help='unit: epoch')
+    parser.add_argument('--vizIter', default=10, help='unit: epoch')
     parser.add_argument('--print_freq', default=50, help='unit: iter')
     parser.add_argument('--outdir', default='', help='output directory')
 
