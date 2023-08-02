@@ -400,8 +400,8 @@ def train(gpu, opt, output_dir, wandb_run=None):
             model.eval()
             x = x1
             with torch.no_grad():
-
-                x_gen_eval = model.gen_samples(new_x_chain(x0, 25).shape, x.device, noise=x0[:25], clip_denoised=False)
+                bs = 10 if x0.shape[0] > 10 else x0.shape[0]
+                x_gen_eval = model.gen_samples(new_x_chain(x0, bs).shape, x.device, noise=x0[:bs], clip_denoised=False)
                 x_gen_list = model.gen_sample_traj(new_x_chain(x0, 1).shape, x.device, noise=x0[:1], freq=40, clip_denoised=False)
                 x_gen_all = torch.cat(x_gen_list, dim=0)
 
