@@ -261,8 +261,9 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
     return train_dataloader, test_dataloader, train_sampler, test_sampler
 
 
-def train(gpu, opt, output_dir):
-
+def train(gpu, opt, output_dir, wandb_run=None):
+    if wandb_run is None:
+        wandb_run = wandb.init(group='train-flow', config=opt, project='shapes-exp')
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -381,6 +382,11 @@ def train(gpu, opt, output_dir):
                             .format(
                         epoch, opt.niter, i, len(dataloader),loss.item(),
                         ))
+                wandb_run.log({
+                    'epoch': epoch,
+                    'batch': i,
+                    'loss': loss.item()
+                })
 
         lr_scheduler.step()
         if (epoch + 1) % opt.vizIter == 0 and should_diag:
@@ -404,6 +410,18 @@ def train(gpu, opt, output_dir):
                     epoch, opt.niter,
                     *gen_eval_range, *gen_stats,
                 ))
+                num_vis = 10
+                x_gen_T = x_gen_eval.transpose(1, 2)
+                x_T = x.transpose(1, 2)
+                x_gen_all_T = x_gen_all.transpose(1, 2)
+                generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                ground_truth = [x_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                gen_all_list = [x_gen_all_T[idx].cpu().detach().numpy() for idx in range(x_gen_all_T.shape[0])]
+                wandb_run.log({
+                    "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
+                    "gtr": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in ground_truth],
+                    "Generated trajectory": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in gen_all_list]
+                    })
 
             visualize_pointcloud_batch('%s/epoch_%03d_samples_eval.png' % (outf_syn, epoch),
                                        x_gen_eval.transpose(1, 2), None, None,
@@ -470,7 +488,8 @@ def main():
         opt.world_size = opt.ngpus_per_node * opt.world_size
         mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir))
     else:
-        train(opt.gpu, opt, output_dir)
+        run = wandb.init(config=opt, project='shapes-exp')
+        train(opt.gpu, opt, output_dir, wandb_run=run)
 
 
 
