@@ -12,6 +12,7 @@ from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from pytorch3d.loss import chamfer_distance
+from ot_loss import SlicedWassersteinDist
 
 class Flowmodel:
     def __init__(self):
@@ -92,7 +93,7 @@ class Flowmodel:
         target = data - z0
         return inter_data, t * 999, target
 
-    def p_losses(self, denoise_fn, data_start, t):
+    def p_losses(self, denoise_fn, data_start, t, loss_type):
         """
         Training loss calculation
         """
@@ -102,8 +103,12 @@ class Flowmodel:
         t = t.squeeze()
         data_t = inter_data
         eps_recon = denoise_fn(data_t, t)
-        losses = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
-        return losses
+        if loss_type == "chamfer":
+            losses, _  = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
+            return losses
+        else
+            losses = SlicedWassersteinDist(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
+            return losses
 
 class PVCNN2(PVCNN2Base):
     sa_blocks = [
@@ -143,7 +148,7 @@ class Model(nn.Module):
 
         return out
 
-    def get_loss_iter(self, data, noises=None):
+    def get_loss_iter(self, data, noises=None, loss_type):
         x0, x1 = data
         data = x0
         B, D, N = data.shape
@@ -153,7 +158,7 @@ class Model(nn.Module):
         #     noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
         data = [x0, x1]
         losses = self.flow.p_losses(
-            denoise_fn=self._denoise, data_start=data, t=t)
+            denoise_fn=self._denoise, data_start=data, t=t, loss_type)
         return losses
 
     def gen_samples(self, shape, device, noise_fn=torch.randn,
@@ -367,7 +372,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                 x = x.cuda()
                 # noises_batch = noises_batch.cuda()
             x = [x0, x1]
-            loss = model.get_loss_iter(x).mean()
+            loss = model.get_loss_iter(x, opt.loss_type).mean()
 
             optimizer.zero_grad()
             loss.backward()
@@ -485,7 +490,7 @@ def main():
     copy_source(__file__, output_dir)
 
     ''' workaround '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    # train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category, opt.reflow_sample_path)
     noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
 
     if opt.dist_url == "env://" and opt.world_size == -1:
@@ -524,9 +529,10 @@ def parse_args():
     parser.add_argument('--attention', default=True)
     parser.add_argument('--dropout', default=0.1)
     parser.add_argument('--embed_dim', type=int, default=64)
-    parser.add_argument('--loss_type', default='mse')
+    # parser.add_argument('--loss_type', default='mse')
     parser.add_argument('--model_mean_type', default='eps')
     parser.add_argument('--model_var_type', default='fixedsmall')
+    parser.add_argument('--loss_type', default='chamfer', choices=['chamfer', 'swd', None])
 
     parser.add_argument('--lr', type=float, default=2e-5, help='learning rate for E, default=0.0002')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
