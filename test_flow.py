@@ -2,7 +2,7 @@ import torch
 from pprint import pprint
 from metrics.evaluation_metrics import jsd_between_point_cloud_sets as JSD
 from metrics.evaluation_metrics import compute_all_metrics, EMD_CD
-
+import wandb
 import torch.nn as nn
 import torch.utils.data
 
@@ -523,6 +523,12 @@ def evaluate_gen(opt, ref_pcs, logger):
     jsd = JSD(sample_pcs.numpy(), ref_pcs.numpy())
     pprint('JSD: {}'.format(jsd))
     logger.info('JSD: {}'.format(jsd))
+    all_res = { ("%s" % k): (v if isinstance(v, float) else v.item()) for k, v in gen_res.items()}
+    try:
+        all_res.upate('JSD': jsd)
+    except:
+        print(f'Issue updating JSD')
+    return all_res
 
 
 
@@ -572,7 +578,6 @@ def generate(model, opt):
 
 
 def main(opt):
-
     if opt.category == 'airplane':
         opt.beta_start = 1e-5
         opt.beta_end = 0.008
@@ -588,38 +593,50 @@ def main(opt):
 
     outf_syn, = setup_output_subdirs(output_dir, 'syn')
 
-    betas = get_betas(opt.schedule_type, opt.beta_start, opt.beta_end, opt.time_num)
-    model = Model(opt, betas, opt.loss_type, opt.model_mean_type, opt.model_var_type)
-
-    if opt.cuda:
-        model.cuda()
-
     def _transform_(m):
         return nn.parallel.DataParallel(m)
-
-    model = model.cuda()
-    model.multi_gpu_wrapper(_transform_)
-
-    model.eval()
-
+    betas = get_betas(opt.schedule_type, opt.beta_start, opt.beta_end, opt.time_num)
+    run = wandb.init(config=opt, project='shapes-exp')
+    columns = []
+    table_data = []
     with torch.no_grad():
-
         logger.info("Resume Path:%s" % opt.model)
+        for model_name in opt.models:
+            for steps in [1, 10]:
+                opt.step = steps
+                model = Model(opt, betas, opt.loss_type, opt.model_mean_type, opt.model_var_type)
+                if opt.cuda:
+                    model.cuda()
 
-        resumed_param = torch.load(opt.model)
-        state_dict = resumed_param['model_state']
-        model.load_state_dict(state_dict)
+                model = model.cuda()
+                model.multi_gpu_wrapper(_transform_)
 
+                model.eval()
+                model_path = os.path.join(opt.model_root, f'{model_name}.pth')
+                resumed_param = torch.load(model_path)
+                state_dict = resumed_param['model_state']
+                model.load_state_dict(state_dict)
 
-        ref = None
-        if opt.generate:
-            opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
-            Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
-            ref=generate(model, opt)
+                ref = None
+                if opt.generate:
+                    opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
+                    Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
+                    ref=generate(model, opt)
 
-        if opt.eval_gen:
-            # Evaluate generation
-            evaluate_gen(opt, ref, logger)
+                if opt.eval_gen:
+                    # Evaluate generation
+                    results = evaluate_gen(opt, ref, logger)
+                    run.log({
+                        "steps": steps,
+                        "model_name": model_name,
+                        "results": results
+                    })
+                    columns = ['Model', 'Steps'] + list(results.keys())
+                    table_entry = [f'{model_name}', steps] + list(results.values())
+                    table_data.append(table_entry)
+    res_table = wandb.Table(columns=columns, data=table_data)
+    run.log({"Evaluation": res_table})
+    run.finish()
 
 
 def parse_args():
@@ -627,7 +644,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
     parser.add_argument('--category', default='chair')
-    parser.add_argument('--step', type=int, default=1000)
+    parser.add_argument('--step', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
     parser.add_argument('--niter', type=int, default=10000, help='number of epochs to train for')
@@ -653,6 +670,8 @@ def parse_args():
     parser.add_argument('--outdir', default='', help='output directory')
 
     parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
+    parser.add_argument('--models', default='',required=True, nargs='+', help="model names")
+    parser.add_argument('--model_root', default='',required=True, help="path to model DIRECTORY")
 
     '''eval'''
 
