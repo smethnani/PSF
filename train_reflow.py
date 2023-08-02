@@ -557,9 +557,9 @@ def parse_args():
                         help='GPU id to use. None means using all available GPUs.')
 
     '''eval'''
-    parser.add_argument('--saveIter', default=100, help='unit: epoch')
+    parser.add_argument('--saveIter', default=30, help='unit: epoch')
     parser.add_argument('--diagIter', default=100, help='unit: epoch')
-    parser.add_argument('--vizIter', default=100, help='unit: epoch')
+    parser.add_argument('--vizIter', default=10, help='unit: epoch')
     parser.add_argument('--print_freq', default=50, help='unit: iter')
     parser.add_argument('--outdir', default='', help='output directory')
 
