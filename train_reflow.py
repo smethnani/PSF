@@ -38,7 +38,7 @@ class Flowmodel:
         return model_mean
 
 
-    def p_sample_loop(self, denoise_fn, shape, device,
+    def p_sample_loop(self, denoise_fn, shape, device, noise=None,
                       noise_fn=torch.randn, clip_denoised=True, keep_running=False):
         """
         Generate samples
@@ -47,7 +47,10 @@ class Flowmodel:
         """
 
         assert isinstance(shape, (tuple, list))
-        img_t = noise_fn(size=shape, dtype=torch.float, device=device)
+        img_t = noise
+        if img_t is None:
+            img_t = noise_fn(size=shape, dtype=torch.float, device=device)
+        
         for t in range(self.num_timesteps):
             t_ = torch.empty(shape[0], dtype=torch.int64, device=device).fill_(t)
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t,t=t_, noise_fn=noise_fn,
@@ -56,7 +59,7 @@ class Flowmodel:
         assert img_t.shape == shape
         return img_t
 
-    def p_sample_loop_trajectory(self, denoise_fn, shape, device, freq,
+    def p_sample_loop_trajectory(self, denoise_fn, shape, device, freq, noise=None,
                                  noise_fn=torch.randn,clip_denoised=True, keep_running=False):
         """
         Generate samples, returning intermediate images
@@ -69,7 +72,9 @@ class Flowmodel:
 
         total_steps =  self.num_timesteps if not keep_running else len(self.betas)
 
-        img_t = noise_fn(size=shape, dtype=torch.float, device=device)
+        img_t = noise
+        if img_t is None:
+            img_t = noise_fn(size=shape, dtype=torch.float, device=device)
         imgs = [img_t]
         for t in range(self.num_timesteps):
 
@@ -157,16 +162,16 @@ class Model(nn.Module):
         assert losses.shape == t.shape == torch.Size([B])
         return losses
 
-    def gen_samples(self, shape, device, noise_fn=torch.randn,
+    def gen_samples(self, shape, device, noise=None, noise_fn=torch.randn,
                     clip_denoised=True,
                     keep_running=False):
-        return self.flow.p_sample_loop(self._denoise, shape=shape, device=device, noise_fn=noise_fn,
+        return self.flow.p_sample_loop(self._denoise, shape=shape, device=device, noise=noise, noise_fn=noise_fn,
                                             clip_denoised=clip_denoised,
                                             keep_running=keep_running)
 
-    def gen_sample_traj(self, shape, device, freq, noise_fn=torch.randn,
+    def gen_sample_traj(self, shape, device, freq, noise=None, noise_fn=torch.randn,
                     clip_denoised=True,keep_running=False):
-        return self.flow.p_sample_loop_trajectory(self._denoise, shape=shape, device=device, noise_fn=noise_fn, freq=freq,
+        return self.flow.p_sample_loop_trajectory(self._denoise, shape=shape, device=device, noise=noise, noise_fn=noise_fn, freq=freq,
                                                        clip_denoised=clip_denoised,
                                                        keep_running=keep_running)
 
@@ -396,8 +401,8 @@ def train(gpu, opt, output_dir, wandb_run=None):
             x = x1
             with torch.no_grad():
 
-                x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, clip_denoised=False)
-                x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, freq=40, clip_denoised=False)
+                x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, noise=x0, clip_denoised=False)
+                x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, noise=x0, freq=40, clip_denoised=False)
                 x_gen_all = torch.cat(x_gen_list, dim=0)
 
                 gen_stats = [x_gen_eval.mean(), x_gen_eval.std()]
