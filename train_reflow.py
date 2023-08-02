@@ -146,7 +146,7 @@ class Model(nn.Module):
 
 
     def _denoise(self, data, t):
-        B, D,N= data.shape
+        B, D, N= data.shape
         out = self.model(data, t)
         return out
 
@@ -268,7 +268,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 def train(gpu, opt, output_dir, wandb_run=None):
     if wandb_run is None:
-        wandb_run = wandb.init(group='train-flow', config=opt, project='shapes-exp')
+        wandb_run = wandb.init(group='train-reflow', config=opt, project='shapes-exp')
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -401,8 +401,8 @@ def train(gpu, opt, output_dir, wandb_run=None):
             x = x1
             with torch.no_grad():
 
-                x_gen_eval = model.gen_samples(new_x_chain(x, 25).shape, x.device, noise=x0, clip_denoised=False)
-                x_gen_list = model.gen_sample_traj(new_x_chain(x, 1).shape, x.device, noise=x0, freq=40, clip_denoised=False)
+                x_gen_eval = model.gen_samples(new_x_chain(x0, 25).shape, x.device, noise=x0[:25], clip_denoised=False)
+                x_gen_list = model.gen_sample_traj(new_x_chain(x0, 1).shape, x.device, noise=x0[:1], freq=40, clip_denoised=False)
                 x_gen_all = torch.cat(x_gen_list, dim=0)
 
                 gen_stats = [x_gen_eval.mean(), x_gen_eval.std()]
