@@ -600,8 +600,8 @@ def main(opt):
     columns = []
     table_data = []
     with torch.no_grad():
-        logger.info("Resume Path:%s" % opt.model)
         for model_name in opt.models:
+            logger.info("Resume Path:%s" % model_name)
             for steps in [1, 10]:
                 opt.step = steps
                 model = Model(opt, betas, opt.loss_type, opt.model_mean_type, opt.model_var_type)
@@ -669,7 +669,7 @@ def parse_args():
     parser.add_argument('--model_var_type', default='fixedsmall')
     parser.add_argument('--outdir', default='', help='output directory')
 
-    parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
+    # parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
     parser.add_argument('--models', default='',required=True, nargs='+', help="model names")
     parser.add_argument('--model_root', default='',required=True, help="path to model DIRECTORY")
 
