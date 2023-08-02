@@ -394,7 +394,7 @@ def train(gpu, opt, output_dir, wandb_run=None):
                 })
 
         lr_scheduler.step()
-        if (epoch + 1) % opt.vizIter == 0 and should_diag:
+        if epoch % opt.vizIter == 0 and should_diag:
             logger.info('Generation: eval')
 
             model.eval()
