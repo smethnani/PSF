@@ -158,7 +158,7 @@ class Model(nn.Module):
         #     noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
         data = [x0, x1]
         losses = self.flow.p_losses(
-            denoise_fn=self._denoise, data_start=data, t=t, loss_type)
+            denoise_fn=self._denoise, data_start=data, t=t, loss_type=loss_type)
         return losses
 
     def gen_samples(self, shape, device, noise_fn=torch.randn,
