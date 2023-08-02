@@ -107,7 +107,7 @@ class Flowmodel:
             losses, _  = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
         else:
-            losses = SlicedWassersteinDist(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
+            losses = SlicedWassersteinDist()(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
 
 class PVCNN2(PVCNN2Base):
@@ -265,7 +265,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
     return train_dataloader, test_dataloader, train_sampler, test_sampler
 
 
-def train(gpu, opt, output_dir, noises_init, wandb_run=None):
+def train(gpu, opt, output_dir, wandb_run=None):
     if wandb_run is None:
         wandb_run = wandb.init(group='train-distill', config=opt, project='shapes-exp')
     set_seed(opt)
@@ -491,7 +491,7 @@ def main():
 
     ''' workaround '''
     # train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category, opt.reflow_sample_path)
-    noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
+    # noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
 
     if opt.dist_url == "env://" and opt.world_size == -1:
         opt.world_size = int(os.environ["WORLD_SIZE"])
@@ -499,10 +499,10 @@ def main():
     if opt.distribution_type == 'multi':
         opt.ngpus_per_node = torch.cuda.device_count()
         opt.world_size = opt.ngpus_per_node * opt.world_size
-        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
+        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir))
     else:
         run = wandb.init(config=opt, project='shapes-exp')
-        train(opt.gpu, opt, output_dir, noises_init, wandb_run=run)
+        train(opt.gpu, opt, output_dir, wandb_run=run)
 
 
 
