@@ -202,13 +202,14 @@ def get_betas(schedule_type, b_start, b_end, time_num):
     return betas
 
 
-def get_dataset(dataroot, npoints,category):
+def get_dataset(dataroot, npoints, category, reflow_sample_path,):
     tr_dataset = ShapeNet15kPointClouds(root_dir=dataroot,
         categories=[category], split='train',
         tr_sample_size=npoints,
         te_sample_size=npoints,
         scale=1.,
         reflow = True,
+        reflow_sample_path=reflow_sample_path,
         normalize_per_shape=False,
         normalize_std_per_axis=False,
         random_subsample=True)
@@ -218,6 +219,7 @@ def get_dataset(dataroot, npoints,category):
         te_sample_size=npoints,
         scale=1.,
         reflow = True,
+        reflow_sample_path=reflow_sample_path,
         normalize_per_shape=False,
         normalize_std_per_axis=False,
         all_points_mean=tr_dataset.all_points_mean,
@@ -288,7 +290,7 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
 
 
     ''' data '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category, opt.reflow_sample_path)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
 
 
@@ -497,6 +499,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
+    parser.add_argument('--reflow_sample_path', default='DATASET.pth')
     parser.add_argument('--category', default='chair')
 
     parser.add_argument('--bs', type=int, default=32, help='input batch size')
