@@ -2,7 +2,7 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-
+import wandb
 import argparse
 from torch.distributions import Normal
 
