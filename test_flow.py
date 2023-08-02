@@ -525,7 +525,7 @@ def evaluate_gen(opt, ref_pcs, logger):
     logger.info('JSD: {}'.format(jsd))
     all_res = { ("%s" % k): (v if isinstance(v, float) else v.item()) for k, v in gen_res.items()}
     try:
-        all_res.upate('JSD': jsd)
+        all_res.upate({'JSD': jsd})
     except:
         print(f'Issue updating JSD')
     return all_res
