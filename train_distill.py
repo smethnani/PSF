@@ -148,7 +148,7 @@ class Model(nn.Module):
 
         return out
 
-    def get_loss_iter(self, data, noises=None, loss_type):
+    def get_loss_iter(self, data, loss_type, noises=None):
         x0, x1 = data
         data = x0
         B, D, N = data.shape
