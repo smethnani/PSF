@@ -455,8 +455,13 @@ def train(gpu, opt, output_dir, wandb_run=None):
                     'model_state': model.state_dict(),
                     'optimizer_state': optimizer.state_dict()
                 }
-
-                torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
+                path = '%s/epoch_%d.pth' % (output_dir, epoch)
+                torch.save(save_dict, path)
+                if wandb_run is not None:
+                    save_name = "reflow-epoch_%s.pth" % epoch
+                    artifact = wandb.Artifact(save_name, type='model')
+                    artifact.add_file(path)
+                    wandb_run.log_artifact(artifact)
 
 
             if opt.distribution_type == 'multi':
