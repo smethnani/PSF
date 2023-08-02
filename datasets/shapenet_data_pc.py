@@ -43,7 +43,7 @@ class Uniform15KPC(Dataset):
                  reflow = False,
                  normalize_std_per_axis=False,
                  all_points_mean=None, all_points_std=None,
-                 input_dim=3, use_mask=False):
+                 input_dim=3, use_mask=False, reflow_sample_path=None):
         self.root_dir = root_dir
         self.split = split
         self.in_tr_sample_size = tr_sample_size
@@ -136,7 +136,9 @@ class Uniform15KPC(Dataset):
               % (self.tr_sample_size, self.te_sample_size))
         assert self.scale == 1, "Scale (!= 1) is deprecated"
         if reflow:
-            reflow_data = torch.load('DATASET.pth', map_location='cpu')
+            if reflow_sample_path is None:
+                print("No reflow samples given. Add location with --reflow_sample_path PATH/TO/SAMPLES.pth")
+            reflow_data = torch.load(reflow_sample_path, map_location='cpu')
             self.x0 = reflow_data[0]
             self.x1 = reflow_data[1]
     def get_pc_stats(self, idx):
@@ -193,9 +195,6 @@ class Uniform15KPC(Dataset):
             'idx': idx,
             'train_points0': x0,
             'train_points1': x1,
-            'test_points': te_out,
-            'mean': m, 'std': s, 'cate_idx': cate_idx,
-            'sid': sid, 'mid': mid
             }
         else:
             out = {
@@ -231,7 +230,7 @@ class ShapeNet15kPointClouds(Uniform15KPC):
                  random_subsample=False,
                  reflow = False,
                  all_points_mean=None, all_points_std=None,
-                 use_mask=False):
+                 use_mask=False, reflow_sample_path='DATASET.pth'):
         self.root_dir = root_dir
         self.split = split
         assert self.split in ['train', 'test', 'val']
@@ -253,6 +252,7 @@ class ShapeNet15kPointClouds(Uniform15KPC):
             te_sample_size=te_sample_size,
             split=split, scale=scale,
             reflow = reflow,
+            reflow_sample_path=reflow_sample_path,
             normalize_per_shape=normalize_per_shape, box_per_shape=box_per_shape,
             normalize_std_per_axis=normalize_std_per_axis,
             random_subsample=random_subsample,

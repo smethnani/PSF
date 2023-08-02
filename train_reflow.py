@@ -94,7 +94,7 @@ class Flowmodel:
         target = data - z0
         return inter_data, t * 999, target
 
-    def p_losses(self, denoise_fn, data_start, t, noise=None):
+    def p_losses(self, denoise_fn, data_start, t):
         """
         Training loss calculation
         """
@@ -145,17 +145,15 @@ class Model(nn.Module):
         out = self.model(data, t)
         return out
 
-    def get_loss_iter(self, data, noises=None):
+    def get_loss_iter(self, data):
         x0, x1 = data
         data = x0
         B, D, N = data.shape
         t = torch.randint(0, 1000, size=(B,), device=data.device)
 
-        if noises is not None:
-            noises[t!=0] = torch.randn((t!=0).sum(), *noises.shape[1:]).to(noises)
         data = [x0, x1]
         losses = self.flow.p_losses(
-            denoise_fn=self._denoise, data_start=data, t=t, noise=noises)
+            denoise_fn=self._denoise, data_start=data, t=t)
         assert losses.shape == t.shape == torch.Size([B])
         return losses
 
@@ -205,13 +203,14 @@ def get_betas(schedule_type, b_start, b_end, time_num):
     return betas
 
 
-def get_dataset(dataroot, npoints,category):
+def get_dataset(dataroot, npoints, category, reflow_sample_path):
     tr_dataset = ShapeNet15kPointClouds(root_dir=dataroot,
         categories=[category], split='train',
         tr_sample_size=npoints,
         te_sample_size=npoints,
         scale=1.,
         reflow = True,
+        reflow_sample_path=reflow_sample_path,
         normalize_per_shape=False,
         normalize_std_per_axis=False,
         random_subsample=True)
@@ -221,6 +220,7 @@ def get_dataset(dataroot, npoints,category):
         te_sample_size=npoints,
         scale=1.,
         reflow = True,
+        reflow_sample_path=reflow_sample_path,
         normalize_per_shape=False,
         normalize_std_per_axis=False,
         all_points_mean=tr_dataset.all_points_mean,
@@ -261,7 +261,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
     return train_dataloader, test_dataloader, train_sampler, test_sampler
 
 
-def train(gpu, opt, output_dir, noises_init):
+def train(gpu, opt, output_dir):
 
     set_seed(opt)
     logger = setup_logging(output_dir)
@@ -290,7 +290,7 @@ def train(gpu, opt, output_dir, noises_init):
 
 
     ''' data '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category, opt.reflow_sample_path)
     dataloader, _, train_sampler, _ = get_dataloader(opt, train_dataset, None)
 
 
@@ -353,7 +353,6 @@ def train(gpu, opt, output_dir, noises_init):
         for i, data in enumerate(dataloader):
             x0 = data['train_points0']
             x1 = data['train_points1']
-            noises_batch = noises_init[data['idx']].transpose(1,2)
 
             '''
             train diffusion
@@ -362,12 +361,10 @@ def train(gpu, opt, output_dir, noises_init):
             if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
                 x0 = x0.cuda(gpu)
                 x1 = x1.cuda(gpu)
-                noises_batch = noises_batch.cuda(gpu)
             elif opt.distribution_type == 'single':
                 x = x.cuda()
-                noises_batch = noises_batch.cuda()
             x = [x0, x1]
-            loss = model.get_loss_iter(x, noises_batch).mean()
+            loss = model.get_loss_iter(x).mean()
 
             optimizer.zero_grad()
             loss.backward()
@@ -462,8 +459,8 @@ def main():
     copy_source(__file__, output_dir)
 
     ''' workaround '''
-    train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
-    noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
+    # train_dataset, _ = get_dataset(opt.dataroot, opt.npoints, opt.category)
+    # noises_init = torch.randn(len(train_dataset), opt.npoints, opt.nc)
 
     if opt.dist_url == "env://" and opt.world_size == -1:
         opt.world_size = int(os.environ["WORLD_SIZE"])
@@ -471,9 +468,9 @@ def main():
     if opt.distribution_type == 'multi':
         opt.ngpus_per_node = torch.cuda.device_count()
         opt.world_size = opt.ngpus_per_node * opt.world_size
-        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
+        mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir))
     else:
-        train(opt.gpu, opt, output_dir, noises_init)
+        train(opt.gpu, opt, output_dir)
 
 
 
@@ -481,6 +478,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
+    parser.add_argument('--reflow_sample_path', default='DATASET.pth')
     parser.add_argument('--category', default='chair')
 
     parser.add_argument('--bs', type=int, default=96, help='input batch size')
