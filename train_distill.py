@@ -452,7 +452,13 @@ def train(gpu, opt, output_dir, noises_init, wandb_run=None):
                     'model_state': model.state_dict(),
                     'optimizer_state': optimizer.state_dict()
                 }
-
+                path = '%s/epoch_%d.pth' % (output_dir, epoch)
+                torch.save(save_dict, path)
+                if wandb_run is not None:
+                    save_name = "reflow-epoch_%s.pth" % epoch
+                    artifact = wandb.Artifact(save_name, type='model')
+                    artifact.add_file(path)
+                    wandb_run.log_artifact(artifact)
                 torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
 
 
@@ -549,7 +555,7 @@ def parse_args():
                         help='GPU id to use. None means using all available GPUs.')
 
     '''eval'''
-    parser.add_argument('--saveIter', default=20, help='unit: epoch')
+    parser.add_argument('--saveIter', default=30, help='unit: epoch')
     parser.add_argument('--diagIter', default=100, help='unit: epoch')
     parser.add_argument('--vizIter', default=10, help='unit: epoch')
     parser.add_argument('--print_freq', default=50, help='unit: iter')
