@@ -523,12 +523,11 @@ def evaluate_gen(opt, ref_pcs, logger):
     jsd = JSD(sample_pcs.numpy(), ref_pcs.numpy())
     pprint('JSD: {}'.format(jsd))
     logger.info('JSD: {}'.format(jsd))
-    all_res = { ("%s" % k): (v if isinstance(v, float) else v.item()) for k, v in gen_res.items()}
     try:
-        all_res.upate({'JSD': jsd})
+        results.upate({'JSD': jsd})
     except:
         print(f'Issue updating JSD')
-    return all_res
+    return results
 
 
 
