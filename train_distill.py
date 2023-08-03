@@ -172,7 +172,7 @@ class Model(nn.Module):
                                             clip_denoised=clip_denoised,
                                             keep_running=keep_running)
 
-    def gen_sample_traj(self, shape, device, freq, noise_fn=torch.randn,
+    def gen_sample_traj(self, shape, device, freq, noise=None, noise_fn=torch.randn,
                     clip_denoised=True,keep_running=False):
         return self.flow.p_sample_loop_trajectory(self._denoise, shape=shape, device=device, noise=noise, noise_fn=noise_fn, freq=freq,
                                                        clip_denoised=clip_denoised,
