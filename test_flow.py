@@ -5,7 +5,7 @@ from metrics.evaluation_metrics import compute_all_metrics, EMD_CD
 import wandb
 import torch.nn as nn
 import torch.utils.data
-
+import time
 import argparse
 from torch.distributions import Normal
 
@@ -308,7 +308,6 @@ class GaussianDiffusion:
             img_t = self.p_sample(denoise_fn=denoise_fn, data=img_t,t=t_, noise_fn=noise_fn,
                                   clip_denoised=clip_denoised, return_pred_xstart=False).detach()
             if self.step == 1:
-                print('break')
                 break
 
         assert img_t.shape == shape
@@ -524,9 +523,9 @@ def evaluate_gen(opt, ref_pcs, logger):
     pprint('JSD: {}'.format(jsd))
     logger.info('JSD: {}'.format(jsd))
     try:
-        results.upate({'JSD': jsd})
-    except:
-        print(f'Issue updating JSD')
+        results.upate({'JSD': jsd.item()})
+    except Exception as e:
+        print(f'Issue updating JSD: {e}')
     return results
 
 
@@ -617,22 +616,22 @@ def main(opt):
                 model.load_state_dict(state_dict)
 
                 ref = None
-                if opt.generate:
-                    opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
-                    Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
-                    ref=generate(model, opt)
+                opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
+                Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
+                start_time = time.time()
+                ref=generate(model, opt)
+                duration = time.time() - start_time
 
-                if opt.eval_gen:
-                    # Evaluate generation
-                    results = evaluate_gen(opt, ref, logger)
-                    run.log({
-                        "steps": steps,
-                        "model_name": model_name,
-                        "results": results
-                    })
-                    columns = ['Model', 'Steps'] + list(results.keys())
-                    table_entry = [f'{model_name}', steps] + list(results.values())
-                    table_data.append(table_entry)
+                # Evaluate generation
+                results = evaluate_gen(opt, ref, logger)
+                run.log({
+                    "steps": steps,
+                    "model_name": model_name,
+                    "results": results
+                })
+                columns = ['Model', 'Steps', 'Sampling time'] + list(results.keys())
+                table_entry = [f'{model_name}', steps, duration] + list(results.values())
+                table_data.append(table_entry)
     res_table = wandb.Table(columns=columns, data=table_data)
     run.log({"Evaluation": res_table})
     run.finish()
