@@ -109,8 +109,6 @@ class Flowmodel:
         eps_recon = denoise_fn(data_t, t)
         P = x1.permute(0, 2, 1)
         Q = (x0 + eps_recon).permute(0, 2, 1)
-        P = P.cuda()
-        Q = Q.to(P.device)
         if loss_type == "chamfer":
             losses, _  = chamfer_distance(P, Q)
             return losses
