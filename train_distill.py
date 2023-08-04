@@ -12,7 +12,7 @@ from model.pvcnn_generation import PVCNN2Base
 import torch.distributed as dist
 from datasets.shapenet_data_pc import ShapeNet15kPointClouds
 from pytorch3d.loss import chamfer_distance
-from ot_loss import SlicedWassersteinDist
+from ot_loss import SlicedWassersteinDist, SphericalSlicedWassersteinDist
 
 class Flowmodel:
     def __init__(self):
@@ -110,8 +110,11 @@ class Flowmodel:
         if loss_type == "chamfer":
             losses, _  = chamfer_distance(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
-        else:
+        elif loss_type == "swd":
             losses = SlicedWassersteinDist()(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
+            return losses
+        else:
+            losses = SphericalSlicedWassersteinDist()(x1.permute(0, 2, 1), (x0 + eps_recon).permute(0, 2, 1))
             return losses
 
 class PVCNN2(PVCNN2Base):
@@ -536,7 +539,7 @@ def parse_args():
     # parser.add_argument('--loss_type', default='mse')
     parser.add_argument('--model_mean_type', default='eps')
     parser.add_argument('--model_var_type', default='fixedsmall')
-    parser.add_argument('--loss_type', default='chamfer', choices=['chamfer', 'swd', None])
+    parser.add_argument('--loss_type', default='chamfer', choices=['chamfer', 'swd', 'sswd', None])
 
     parser.add_argument('--lr', type=float, default=2e-5, help='learning rate for E, default=0.0002')
     parser.add_argument('--beta1', type=float, default=0.5, help='beta1 for adam. default=0.5')
