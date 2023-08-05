@@ -466,21 +466,21 @@ def train(gpu, opt, output_dir, wandb_run=None):
                     'model_state': model.state_dict(),
                     'optimizer_state': optimizer.state_dict()
                 }
-                path = '%s/epoch_%d.pth' % (output_dir, epoch)
+                path = f'{output_dir}/reflow-{opt.loss_type}-epoch_{epoch}.pth'
                 torch.save(save_dict, path)
                 if wandb_run is not None:
-                    save_name = "reflow-epoch_%s.pth" % epoch
+                    save_name = f"reflow-{opt.loss_type}-epoch_{epoch}.pth"
                     artifact = wandb.Artifact(save_name, type='model')
                     artifact.add_file(path)
                     wandb_run.log_artifact(artifact)
-                torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
+                # torch.save(save_dict, '%s/epoch_%d.pth' % (output_dir, epoch))
 
 
             if opt.distribution_type == 'multi':
                 dist.barrier()
                 map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
                 model.load_state_dict(
-                    torch.load('%s/epoch_%d.pth' % (output_dir, epoch), map_location=map_location)['model_state'])
+                    torch.load(f'{output_dir}/reflow-{opt.loss_type}-epoch_{epoch}.pth', map_location=map_location)['model_state'])
 
     dist.destroy_process_group()
 
