@@ -417,8 +417,10 @@ def get_betas(schedule_type, b_start, b_end, time_num):
 
 
 def get_dataset(dataroot, npoints,category):
+    if type(category) is not list:
+        category = [category]
     tr_dataset = ShapeNet15kPointClouds(root_dir=dataroot,
-        categories=[category], split='train',
+        categories=category, split='train',
         tr_sample_size=npoints,
         te_sample_size=npoints,
         scale=1.,
@@ -426,7 +428,7 @@ def get_dataset(dataroot, npoints,category):
         normalize_std_per_axis=False,
         random_subsample=True)
     te_dataset = ShapeNet15kPointClouds(root_dir=dataroot,
-        categories=[category], split='val',
+        categories=category, split='val',
         tr_sample_size=npoints,
         te_sample_size=npoints,
         scale=1.,
