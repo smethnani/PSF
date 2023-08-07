@@ -505,7 +505,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./ShapeNetCore.v2.PC15k/')
-    parser.add_argument('--category', default='car')
+    parser.add_argument('--category', default='car', nargs='+')
 
     parser.add_argument('--bs', type=int, default=32, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
