@@ -594,7 +594,10 @@ def main(opt):
     def _transform_(m):
         return nn.parallel.DataParallel(m)
     betas = get_betas(opt.schedule_type, opt.beta_start, opt.beta_end, opt.time_num)
-    run = wandb.init(config=opt, project='shapes-exp')
+    if opt.run_id is None:
+        run_time = time.strftime('%Y-%b-%d-%H-%M-%S')
+        opt.run_id = f'test-flow-{run_time}'
+    run = wandb.init(config=opt, project='shapes-exp', id=opt.run_id)
     columns = []
     table_data = []
     with torch.no_grad():
@@ -670,6 +673,7 @@ def parse_args():
     # parser.add_argument('--model', default='',required=True, help="path to model (to continue training)")
     parser.add_argument('--models', default='',required=True, nargs='+', help="model names")
     parser.add_argument('--model_root', default='',required=True, help="path to model DIRECTORY")
+    parser.add_argument('--run_id', default=None, help="wandb run id")
 
     '''eval'''
 

@@ -5,7 +5,7 @@ import torch.utils.data
 import wandb
 import argparse
 from torch.distributions import Normal
-
+import time
 from utils.file_utils import *
 from utils.visualize import *
 from model.pvcnn_generation import PVCNN2Base
@@ -276,7 +276,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 def train(gpu, opt, output_dir, wandb_run=None):
     if wandb_run is None:
-        wandb_run = wandb.init(group='train-distill', config=opt, project='shapes-exp')
+        wandb_run = wandb.init(group='train-distill', config=opt, project='shapes-exp', id=opt.run_id)
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -347,7 +347,7 @@ def train(gpu, opt, output_dir, wandb_run=None):
     if opt.model != '':
         ckpt = torch.load(opt.model)
         model.load_state_dict(ckpt['model_state'])
-        optimizer.load_state_dict(ckpt['optimizer_state'])
+        # optimizer.load_state_dict(ckpt['optimizer_state'])
 
     if opt.model != '':
         start_epoch = 0
@@ -491,6 +491,10 @@ def main():
         opt.beta_end = 0.008
         opt.schedule_type = 'warm0.1'
 
+    if opt.run_id is None:
+        run_time = time.strftime('%Y-%b-%d-%H-%M-%S')
+        opt.run_id = f'train-distill-{run_time}'
+
     exp_id = os.path.splitext(os.path.basename(__file__))[0]
     dir_id = opt.outdir
     if len(dir_id) == 0:
@@ -511,7 +515,7 @@ def main():
         mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir))
     else:
         run = wandb.init(config=opt, project='shapes-exp')
-        train(opt.gpu, opt, output_dir, wandb_run=run)
+        train(opt.gpu, opt, output_dir, wandb_run=run, id=opt.run_id)
 
 
 
@@ -550,6 +554,7 @@ def parse_args():
     parser.add_argument('--lr_gamma', type=float, default=0.998, help='lr decay for EBM')
 
     parser.add_argument('--model', default='', help="path to model (to continue training)")
+    parser.add_argument('--run_id', default=None, help="wandb run id")
 
 
     '''distributed'''
