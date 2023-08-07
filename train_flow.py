@@ -265,7 +265,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 def train(gpu, opt, output_dir, noises_init, wandb_run=None):
     if wandb_run is None:
-        wandb_run = wandb.init(group='train-flow', config=opt, project='shapes-exp', id=opt.run_id)
+        wandb_run = wandb.init(dir=opt.outdir, group='train-flow', config=opt, project='shapes-exp', id=opt.run_id)
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -495,7 +495,7 @@ def main():
         opt.world_size = opt.ngpus_per_node * opt.world_size
         mp.spawn(train, nprocs=opt.ngpus_per_node, args=(opt, output_dir, noises_init))
     else:
-        run = wandb.init(config=opt, project='shapes-exp', id=opt.run_id)
+        run = wandb.init(dir=opt.outdir, config=opt, project='shapes-exp', id=opt.run_id)
         train(opt.gpu, opt, output_dir, noises_init, wandb_run=run)
 
 

@@ -597,7 +597,7 @@ def main(opt):
     if opt.run_id is None:
         run_time = time.strftime('%Y-%b-%d-%H-%M-%S')
         opt.run_id = f'test-flow-{run_time}'
-    run = wandb.init(config=opt, project='shapes-exp', id=opt.run_id)
+    run = wandb.init(dir=opt.outdir, config=opt, project='shapes-exp', id=opt.run_id)
     columns = []
     table_data = []
     with torch.no_grad():
