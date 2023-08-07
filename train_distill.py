@@ -276,6 +276,7 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 def train(gpu, opt, output_dir, wandb_run=None):
     if wandb_run is None:
+        opt.run_id = opt.run_id + f'-gpu-{gpu}'
         wandb_run = wandb.init(dir=opt.outdir, group='train-distill', config=opt, project='shapes-exp', id=opt.run_id)
     set_seed(opt)
     logger = setup_logging(output_dir)
