@@ -563,21 +563,21 @@ def train(gpu, opt, output_dir, noises_init):
 
         lr_scheduler.step(epoch)
 
-        # for i, data in enumerate(dataloader):
-        #     x = data['train_points'].transpose(1,2)
-        #     noises_batch = noises_init[data['idx']].transpose(1,2)
+        for i, data in enumerate(dataloader):
+            x = data['train_points'].transpose(1,2)
+            noises_batch = noises_init[data['idx']].transpose(1,2)
 
-        #     '''
-        #     train diffusion
-        #     '''
+            '''
+            train diffusion
+            '''
 
-        #     if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
-        #         x = x.cuda(gpu)
-        #         noises_batch = noises_batch.cuda(gpu)
-        #     elif opt.distribution_type == 'single':
-        #         x = x.cuda()
-        #         noises_batch = noises_batch.cuda()
-        #     break
+            if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
+                x = x.cuda(gpu)
+                noises_batch = noises_batch.cuda(gpu)
+            elif opt.distribution_type == 'single':
+                x = x.cuda()
+                noises_batch = noises_batch.cuda()
+            break
 
 
         if 1:
@@ -590,15 +590,15 @@ def train(gpu, opt, output_dir, noises_init):
                 x1 = []
                 for i in range(500):
                     x_gen_eval = model.gen_samples(new_x_chain(x, 64).shape, x.device, clip_denoised=False)
-                    x0.append(x_gen_eval[0])
-                    x1.append(x_gen_eval[1])
+                    # x0.append(x_gen_eval[0])
+                    # x1.append(x_gen_eval[1])
 
-                    print('Step', i)
+                    logger.info(f'Step {i}')
 
-                x0 = torch.cat(x0, 0)
-                x1 = torch.cat(x1, 0)
-                # This should be parallely sampled with 8 GPUs in practice , here we only use one as example
-                torch.save([x0, x1],  '%s/DATASET.pth' % output_dir)
+                    # x0 = torch.cat(x0, 0)
+                    # x1 = torch.cat(x1, 0)
+                    # This should be parallely sampled with 8 GPUs in practice , here we only use one as example
+                    torch.save([x_gen_eval[0], x_gen_eval[1]],  f'{outputdir}/DATASET-{i}-gpu-{gpu}.pth' )
 
                 exit(0)
 
