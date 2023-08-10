@@ -22,7 +22,7 @@ class GaussianDiffusion:
         assert (betas > 0).all() and (betas <= 1).all()
         timesteps, = betas.shape
         self.num_timesteps = int(timesteps)
-
+        print(f'Timeteps: {self.num_timesteps}')
         alphas = 1. - betas
         alphas_cumprod = torch.from_numpy(np.cumprod(alphas, axis=0)).float()
         alphas_cumprod_prev = torch.from_numpy(np.append(1., alphas_cumprod[:-1])).float()
@@ -563,21 +563,21 @@ def train(gpu, opt, output_dir, noises_init):
 
         lr_scheduler.step(epoch)
 
-        for i, data in enumerate(dataloader):
-            x = data['train_points'].transpose(1,2)
-            noises_batch = noises_init[data['idx']].transpose(1,2)
+        # for i, data in enumerate(dataloader):
+        #     x = data['train_points'].transpose(1,2)
+        #     noises_batch = noises_init[data['idx']].transpose(1,2)
 
-            '''
-            train diffusion
-            '''
+        #     '''
+        #     train diffusion
+        #     '''
 
-            if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
-                x = x.cuda(gpu)
-                noises_batch = noises_batch.cuda(gpu)
-            elif opt.distribution_type == 'single':
-                x = x.cuda()
-                noises_batch = noises_batch.cuda()
-            break
+        #     if opt.distribution_type == 'multi' or (opt.distribution_type is None and gpu is not None):
+        #         x = x.cuda(gpu)
+        #         noises_batch = noises_batch.cuda(gpu)
+        #     elif opt.distribution_type == 'single':
+        #         x = x.cuda()
+        #         noises_batch = noises_batch.cuda()
+        #     break
 
 
         if 1:
@@ -588,7 +588,7 @@ def train(gpu, opt, output_dir, noises_init):
 
                 x0 = []
                 x1 = []
-                for i in range(1000):
+                for i in range(500):
                     x_gen_eval = model.gen_samples(new_x_chain(x, 64).shape, x.device, clip_denoised=False)
                     x0.append(x_gen_eval[0])
                     x1.append(x_gen_eval[1])
@@ -638,7 +638,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
-    parser.add_argument('--category', default='chair')
+    parser.add_argument('--category', default='chair', nargs='+')
 
     parser.add_argument('--bs', type=int, default=16, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
@@ -667,7 +667,7 @@ def parse_args():
     parser.add_argument('--lr_gamma', type=float, default=0.998, help='lr decay for EBM')
 
     parser.add_argument('--model', default='./data/epoch_8431.pth', help="path to model (to continue training)")
-
+    parser.add_argument('--outdir', default='', help='output directory')
 
     '''distributed'''
     parser.add_argument('--world_size', default=1, type=int,
