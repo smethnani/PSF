@@ -2,7 +2,8 @@ import torch.multiprocessing as mp
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-
+import wandb
+import time
 import argparse
 from torch.distributions import Normal
 
@@ -473,7 +474,12 @@ def get_dataloader(opt, train_dataset, test_dataset=None):
 
 
 def train(gpu, opt, output_dir, noises_init):
+    if opt.run_id is None:
+        run_time = time.strftime('%Y-%b-%d-%H-%M-%S')
+        opt.run_id = f'samples-{run_time}'
 
+    opt.run_id = opt.run_id + f'-gpu-{gpu}'
+    wandb_run = wandb.init(dir=opt.outdir, group='sample-flow', config=opt, project='shapes-exp', id=opt.run_id)
     set_seed(opt)
     logger = setup_logging(output_dir)
     if opt.distribution_type == 'multi':
@@ -589,7 +595,6 @@ def train(gpu, opt, output_dir, noises_init):
                 x0 = []
                 x1 = []
                 for i in range(500):
-                    logger.info(f'Starting step {i}')
                     x_gen_eval = model.gen_samples(new_x_chain(x, 64).shape, x.device, clip_denoised=False)
                     # x0.append(x_gen_eval[0])
                     # x1.append(x_gen_eval[1])
@@ -598,8 +603,16 @@ def train(gpu, opt, output_dir, noises_init):
                     # x1 = torch.cat(x1, 0)
                     # This should be parallely sampled with 8 GPUs in practice , here we only use one as example
                     torch.save([x_gen_eval[0], x_gen_eval[1]],  f'{output_dir}/DATASET-{i}-gpu-{gpu}.pth' )
-                    logger.info(f'Done step {i}')
-
+                    if i % 10 == 0:
+                        logger.info(f'Done step {i}')
+                    if i % 20 == 0:
+                        num_vis = 5
+                        x_gen_T = x_gen_eval[1].transpose(1, 2)
+                        generated = [x_gen_T[idx].cpu().detach().numpy() for idx in range(num_vis)]
+                        wandb_run.log({
+                            "generated_samples": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated],
+                            })
+                wandb_run.finish()
                 exit(0)
 
     dist.destroy_process_group()
@@ -668,6 +681,7 @@ def parse_args():
 
     parser.add_argument('--model', default='./data/epoch_8431.pth', help="path to model (to continue training)")
     parser.add_argument('--outdir', default='', help='output directory')
+    parser.add_argument('--run_id', default=None, help="wandb run id")
 
     '''distributed'''
     parser.add_argument('--world_size', default=1, type=int,
