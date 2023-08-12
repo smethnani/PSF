@@ -461,7 +461,7 @@ def train(gpu, opt, output_dir, wandb_run=None):
                 path = '%s/epoch_%d.pth' % (output_dir, epoch)
                 torch.save(save_dict, path)
                 if wandb_run is not None:
-                    save_name = "reflow-epoch_%s.pth" % epoch
+                    save_name = f"{wandb_run.id}-epoch_{epoch}.pth"
                     artifact = wandb.Artifact(save_name, type='model')
                     artifact.add_file(path)
                     wandb_run.log_artifact(artifact)
