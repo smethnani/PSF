@@ -525,14 +525,14 @@ def evaluate_gen(opt, ref_pcs, logger):
     pprint('JSD: {}'.format(jsd))
     logger.info('JSD: {}'.format(jsd))
     try:
-        results.upate({'JSD': jsd.item()})
+        results.update({'JSD': jsd.item()})
     except Exception as e:
         print(f'Issue updating JSD: {e}')
     return results
 
 
 
-def generate(model, opt):
+def generate(model, opt, title=''):
 
     _, test_dataset = get_dataset(opt.dataroot, opt.npoints, opt.category)
 
@@ -566,6 +566,9 @@ def generate(model, opt):
             visualize_pointcloud_batch(os.path.join(str(Path(opt.eval_path).parent), 'x.png'), gen[:64], None,
                                        None, None)
 
+            wandb_run.log({
+                f"Gen-{title}": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in gen[:10]],
+                })
         samples = torch.cat(samples, dim=0)
         torch.save(samples, 'appendix_distill_samples_{}_{}.pth'.format(opt.category, opt.step))
         ref = torch.cat(ref, dim=0)
@@ -624,7 +627,7 @@ def main(opt):
                 opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
                 Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
                 start_time = time.time()
-                ref=generate(model, opt)
+                ref=generate(model, opt, title=f'{model_name}-{steps}')
                 duration = time.time() - start_time
 
                 # Evaluate generation
