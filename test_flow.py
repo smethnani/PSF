@@ -606,12 +606,10 @@ def main(opt):
     run = wandb.init(dir=opt.outdir, config=opt, project='shapes-exp', id=opt.run_id)
     columns = []
     table_data = []
-    steps = opt.step
     with torch.no_grad():
         for model_name in opt.models:
             logger.info("Resume Path:%s" % model_name)
-            for category in ['airplane', 'chair', 'car']:
-                opt.category = category
+            for steps in [1]:
                 model = Model(opt, betas, opt.loss_type, opt.model_mean_type, opt.model_var_type)
                 if opt.cuda:
                     model.cuda()
@@ -652,7 +650,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataroot', default='./data/ShapeNetCore.v2.PC15k/')
-    parser.add_argument('--category', default='chair')
+    parser.add_argument('--category', nargs="+", default='chair')
     parser.add_argument('--step', type=int, default=1)
     parser.add_argument('--batch_size', type=int, default=50, help='input batch size')
     parser.add_argument('--workers', type=int, default=16, help='workers')
@@ -688,7 +686,7 @@ def parse_args():
     parser.add_argument('--eval_path',
                         default='')
 
-    parser.add_argument('--manualSeed', default=42, type=int, help='random seed')
+    parser.add_argument('--manualSeed', default=0, type=int, help='random seed')
 
     parser.add_argument('--gpu', type=int, default=0, metavar='S', help='gpu id (default: 0)')
 
