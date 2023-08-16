@@ -606,6 +606,7 @@ def main(opt):
     run = wandb.init(dir=opt.outdir, config=opt, project='shapes-exp', id=opt.run_id)
     columns = []
     table_data = []
+    steps = opt.step
     with torch.no_grad():
         for model_name in opt.models:
             logger.info("Resume Path:%s" % model_name)
@@ -639,8 +640,8 @@ def main(opt):
                     "category" : opt.category,
                     "results": results
                 })
-                columns = ['Model', 'Steps'] + list(results.keys())
-                table_entry = [f'{model_name}', steps] + list(results.values())
+                columns = ['Model', 'Steps', 'Category'] + list(results.keys())
+                table_entry = [f'{model_name}', steps, opt.category] + list(results.values())
                 table_data.append(table_entry)
     res_table = wandb.Table(columns=columns, data=table_data)
     run.log({"Evaluation": res_table})
