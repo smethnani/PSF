@@ -555,19 +555,20 @@ def generate(model, opt, title=''):
             gen = gen.transpose(1,2).contiguous()
             x = x.transpose(1,2).contiguous()
 
-
-
             gen = gen * s + m
             x = x * s + m
             samples.append(gen)
+
+            num_vis = 10
+            generated = [gen[idx].cpu().detach().numpy() for idx in range(num_vis)]
             ref.append(x)
             #torch.save(samples, 'flow_samples.pth')
             #exit(0)
             visualize_pointcloud_batch(os.path.join(str(Path(opt.eval_path).parent), 'x.png'), gen[:64], None,
                                        None, None)
 
-            wandb_run.log({
-                f"Gen-{title}": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in gen[:10]],
+            wandb.log({
+                f"Gen-{title}": [wandb.Object3D(pc[:, [0, 2, 1]]) for pc in generated[:10]],
                 })
         samples = torch.cat(samples, dim=0)
         torch.save(samples, 'appendix_distill_samples_{}_{}.pth'.format(opt.category, opt.step))
@@ -608,8 +609,8 @@ def main(opt):
     with torch.no_grad():
         for model_name in opt.models:
             logger.info("Resume Path:%s" % model_name)
-            for steps in [1, 10]:
-                opt.step = steps
+            for category in ['airplane', 'chair', 'car']:
+                opt.category = category
                 model = Model(opt, betas, opt.loss_type, opt.model_mean_type, opt.model_var_type)
                 if opt.cuda:
                     model.cuda()
@@ -624,7 +625,7 @@ def main(opt):
                 model.load_state_dict(state_dict)
 
                 ref = None
-                opt.eval_path = os.path.join(outf_syn, opt.category + 'samples.pth')
+                opt.eval_path = os.path.join(outf_syn, f'{opt.category}-{model_name}-samples.pth')
                 Path(opt.eval_path).parent.mkdir(parents=True, exist_ok=True)
                 start_time = time.time()
                 ref=generate(model, opt, title=f'{model_name}-{steps}')
@@ -635,10 +636,11 @@ def main(opt):
                 run.log({
                     "steps": steps,
                     "model_name": model_name,
+                    "category" : opt.category,
                     "results": results
                 })
-                columns = ['Model', 'Steps', 'Sampling time'] + list(results.keys())
-                table_entry = [f'{model_name}', steps, duration] + list(results.values())
+                columns = ['Model', 'Steps'] + list(results.keys())
+                table_entry = [f'{model_name}', steps] + list(results.values())
                 table_data.append(table_entry)
     res_table = wandb.Table(columns=columns, data=table_data)
     run.log({"Evaluation": res_table})
