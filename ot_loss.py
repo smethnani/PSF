@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import ot
 class SlicedWassersteinDist(nn.Module):
-    def __init__(self, n_projections=100):
+    def __init__(self, n_projections=500):
         super(SlicedWassersteinDist, self).__init__()
         self.n_projections = n_projections
 

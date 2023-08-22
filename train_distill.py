@@ -102,11 +102,7 @@ class Flowmodel:
         Training loss calculation
         """
         x0, x1 = data_start
-        data_start = x1
-        inter_data, t, target = self.sample_pairs(x0 = x0, x1 = x1)
-        t = t.squeeze()
-        data_t = inter_data
-        eps_recon = denoise_fn(data_t, t)
+        eps_recon = denoise_fn(x0, torch.zeros((x1.shape[0], 1)).to(data.device))
         P = x1.permute(0, 2, 1)
         Q = (x0 + eps_recon).permute(0, 2, 1)
         if loss_type == "chamfer":
@@ -384,7 +380,10 @@ def train(gpu, opt, output_dir, wandb_run=None):
                 x = x.cuda()
                 # noises_batch = noises_batch.cuda()
             x = [x0, x1]
-            loss = model.get_loss_iter(x, opt.loss_type).mean()
+            loss = model.get_loss_iter(x, opt.loss_type)
+            if i == 0:
+                print(f'Loss: {loss}, loss-mean: {loss.mean()}')
+            loss = loss.mean()
 
             optimizer.zero_grad()
             loss.backward()
