@@ -102,7 +102,7 @@ class Flowmodel:
         Training loss calculation
         """
         x0, x1 = data_start
-        eps_recon = denoise_fn(x0, torch.zeros((x1.shape[0], 1)).to(data.device))
+        eps_recon = denoise_fn(x0, torch.zeros((x1.shape[0], 1)).to(x1.device))
         P = x1.permute(0, 2, 1)
         Q = (x0 + eps_recon).permute(0, 2, 1)
         if loss_type == "chamfer":
